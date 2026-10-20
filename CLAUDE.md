@@ -17,11 +17,13 @@
 - 环境变量在 `context.env`（`PAYLOAD_URL`、`REPORT_RELAY_SECRET`），不是 `process.env`。
 - 请求体上限 1 MB，CPU 200 ms（不含 I/O 等待）；代码包 5 MB。
 - 路由按 `edge-functions/` 目录生成：`edge-functions/mcp.js` → `/mcp`。
+- 静态资源只发 `public/`（`edgeone.json` 的 `outputDirectory`）：不配的话 CLI 会把整个仓库（README、CLAUDE.md、test、connector）当静态文件公开。
+- `request.eo.clientIp` 已在 `edgeone makers dev` 里确认可用（`eo` 里还有 geo / tls 等）；Cache API 可用。dev 环境的 fetch 访问不了 localhost / 内网（`intranet intercepted`），联调要连公网的 payload；本地 `.env` 会被 dev 读进 `context.env`（已 gitignore）。
 - 纯 JS（`// @ts-check` + JSDoc），`pnpm typecheck` 用 tsc checkJs 检查；逻辑放在可测试的 `handleMcpRequest(request, deps)`，`onRequest` 只负责组装依赖。
 
 ## 常用命令
 
 ```bash
 pnpm test / pnpm typecheck / pnpm format
-pnpm run deploy    # edgeone makers deploy（pnpm deploy 是内置命令，要加 run）
+pnpm run deploy    # edgeone makers deploy -n cn-owlpin-report-mcp（pnpm deploy 是内置命令，要加 run）
 ```

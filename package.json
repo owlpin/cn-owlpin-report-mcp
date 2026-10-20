@@ -9,7 +9,7 @@
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
     "format": "prettier --write .",
-    "deploy": "edgeone makers deploy"
+    "deploy": "edgeone makers deploy -n cn-owlpin-report-mcp"
   },
   "devDependencies": {
     "prettier": "^3.7.4",

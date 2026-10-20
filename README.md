@@ -19,6 +19,7 @@ WorkBuddy ──MCP──▶ report.owlpin.cn/mcp（本项目，无状态）
 | --- | --- |
 | `edge-functions/mcp.js` | 唯一的边缘函数（路由 `/mcp`）：MCP 协议 + 两个工具，纯 JS、无依赖、不需要构建 |
 | `test/mcp.test.js` | vitest，mock fetch 测协议、转发的请求头 / body 和各种上游响应 |
+| `edgeone.json`、`public/` | 静态资源只发 `public/`（只有一个禁止抓取的 robots.txt），仓库里的其他文件不会被公开 |
 | `connector/` | WorkBuddy 连接器包（`connector-meta.json`、`mcp.json`、`icon.svg`、`skills/owlpin-report/SKILL.md`），打包后在 WorkBuddy 开放平台提交审核 |
 
 ## 开发
@@ -32,12 +33,12 @@ pnpm typecheck   # tsc checkJs（JSDoc 类型）
 ## 部署（EdgeOne Makers）
 
 1. 安装 CLI 并登录：`npm i -g edgeone@latest`，`edgeone login`（选「中国站」）。
-2. 首次部署：`edgeone makers deploy`，按提示创建项目。
+2. 首次部署：`pnpm run deploy`（即 `edgeone makers deploy -n cn-owlpin-report-mcp`），项目不存在时会自动创建。
 3. 控制台 → 项目设置 → 环境变量：
    - `PAYLOAD_URL`：默认 `https://payload.owlpin.cn`，一般不用设
    - `REPORT_RELAY_SECRET`：与 payload 的 Worker secret `REPORT_RELAY_SECRET` 相同（`wrangler secret put REPORT_RELAY_SECRET --env production`）。不设的话 payload 只能看到 EdgeOne 的出口 IP，所有用户共用一个限流桶
 4. 控制台 → 域名管理：绑定 `report.owlpin.cn`，加速区域选中国大陆（owlpin.cn 已备案），按提示在 DNSPod 加 CNAME。
-5. 之后发版：`pnpm run deploy`（即 `edgeone makers deploy`；`pnpm deploy` 是 pnpm 内置命令，要加 run）。
+5. 之后发版：`pnpm run deploy`（`pnpm deploy` 是 pnpm 内置命令，要加 run）。
 
 上线后验证：
 

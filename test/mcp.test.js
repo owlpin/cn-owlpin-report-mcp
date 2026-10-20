@@ -14,12 +14,13 @@ function jsonResponse(body, status = 200) {
 function memoryCache() {
   /** @type {Map<string, string>} */
   const store = new Map()
-  return /** @type {Cache} */ (
+  return /** @type {Cache & { keys: () => string[] }} */ (
     /** @type {unknown} */ ({
       match: async (/** @type {string} */ key) => (store.has(key) ? new Response(store.get(key)) : undefined),
       put: async (/** @type {string} */ key, /** @type {Response} */ response) => {
         store.set(key, await response.text())
       },
+      keys: () => [...store.keys()],
     })
   )
 }
@@ -34,7 +35,7 @@ function deps(overrides = {}) {
     payloadUrl: PAYLOAD,
     relaySecret: 'relay-secret',
     clientIp: '203.0.113.7',
-    cache: null,
+    openCache: async () => null,
     ...overrides,
   }
 }
@@ -62,8 +63,10 @@ const FORMAT = { catalogVersion: 1, format: 'COMPONENTS: ...', ttlHours: 8 }
 const SPEC = { root: 'page', elements: {} }
 
 beforeEach(() => {
+  vi.restoreAllMocks()
   fetchMock = vi.fn()
   vi.spyOn(console, 'error').mockImplementation(() => {})
+  vi.spyOn(console, 'info').mockImplementation(() => {})
 })
 
 describe('protocol', () => {
@@ -103,6 +106,26 @@ describe('protocol', () => {
     expect(response.status).toBe(400)
   })
 
+  it('opens the cache only for get_report_format', async () => {
+    const openCache = vi.fn(async () => null)
+    await handleMcpRequest(rpcRequest({ jsonrpc: '2.0', id: 1, method: 'initialize' }), deps({ openCache }))
+    await handleMcpRequest(rpcRequest({ jsonrpc: '2.0', id: 2, method: 'tools/list' }), deps({ openCache }))
+    expect(openCache).not.toHaveBeenCalled()
+  })
+
+  it('checks the body size in bytes even without Content-Length', async () => {
+    const request = new Request('https://report.example.com/mcp', {
+      method: 'POST',
+      body: new Blob([
+        JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'ping', params: { pad: '汉'.repeat(100_000) } }),
+      ]).stream(),
+      // @ts-expect-error Node 的 fetch 要求流式 body 声明 duplex
+      duplex: 'half',
+    })
+    expect(request.headers.get('content-length')).toBeNull()
+    expect((await handleMcpRequest(request, deps())).status).toBe(413)
+  })
+
   it('rejects browser requests and oversized bodies', async () => {
     const browser = await handleMcpRequest(
       rpcRequest(callTool('create_report', { spec: SPEC }), { Origin: 'https://evil.example' }),
@@ -131,11 +154,17 @@ describe('get_report_format', () => {
   it('proxies payload and caches the answer', async () => {
     fetchMock.mockResolvedValue(jsonResponse(FORMAT))
     const cache = memoryCache()
-    const first = await resultOf(await handleMcpRequest(rpcRequest(callTool('get_report_format')), deps({ cache })))
-    const second = await resultOf(await handleMcpRequest(rpcRequest(callTool('get_report_format')), deps({ cache })))
+    const first = await resultOf(
+      await handleMcpRequest(rpcRequest(callTool('get_report_format')), deps({ openCache: async () => cache }))
+    )
+    const second = await resultOf(
+      await handleMcpRequest(rpcRequest(callTool('get_report_format')), deps({ openCache: async () => cache }))
+    )
 
     expect(fetchMock).toHaveBeenCalledTimes(1)
     expect(fetchMock.mock.calls[0][0]).toBe(`${PAYLOAD}/api/reports/format`)
+    // 缓存 key 用本服务自己的域名
+    expect(cache.keys()).toEqual(['https://report.example.com/__cache/report-format'])
     for (const { result } of [first, second]) {
       expect(result.content[0].text).toBe(FORMAT.format)
       expect(result.structuredContent).toEqual(FORMAT)
@@ -180,15 +209,36 @@ describe('create_report', () => {
     expect(result.content[0].text).toContain('https://app.example.com/b/tok')
   })
 
-  it('does not send the relay headers without a platform client IP or secret', async () => {
-    fetchMock.mockResolvedValue(jsonResponse({ token: 't', url: null, expiresAt: 'x', issues: [] }, 201))
+  it('does not send the relay headers without a client IP, a secret or https, and logs it', async () => {
+    fetchMock.mockImplementation(async () => jsonResponse({ token: 't', url: null, expiresAt: 'x', issues: [] }, 201))
     await handleMcpRequest(rpcRequest(callTool('create_report', { spec: SPEC })), deps({ clientIp: null }))
     await handleMcpRequest(rpcRequest(callTool('create_report', { spec: SPEC })), deps({ relaySecret: '' }))
+    await handleMcpRequest(
+      rpcRequest(callTool('create_report', { spec: SPEC })),
+      deps({ payloadUrl: 'http://payload.example.com' })
+    )
+    expect(fetchMock).toHaveBeenCalledTimes(3)
     for (const [, init] of fetchMock.mock.calls) {
       expect(init.headers).not.toHaveProperty('X-Report-Client-Ip')
       expect(init.headers).not.toHaveProperty('X-Report-Relay-Secret')
       expect(init.headers['X-Owlpin-Client']).toBe('api')
     }
+    const logged = vi
+      .mocked(console.error)
+      .mock.calls.filter(([message]) => String(message).includes('relayed client IP'))
+    expect(logged).toHaveLength(3)
+  })
+
+  it('times out when payload sends headers but stalls the body', async () => {
+    vi.useFakeTimers()
+    fetchMock.mockResolvedValue(
+      new Response(new ReadableStream({ start() {} }), { status: 201, headers: { 'Content-Type': 'application/json' } })
+    )
+    const pending = handleMcpRequest(rpcRequest(callTool('create_report', { spec: SPEC })), deps())
+    await vi.advanceTimersByTimeAsync(15_000)
+    const { result } = await resultOf(await pending)
+    vi.useRealTimers()
+    expect(result.isError).toBe(true)
   })
 
   it('passes payload validation issues back so the model can retry', async () => {

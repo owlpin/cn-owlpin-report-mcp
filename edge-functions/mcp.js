@@ -14,18 +14,28 @@
  * 环境变量在 `context.env`，客户端 IP 在 `request.eo.clientIp`；请求体上限 1 MB、CPU 200 ms。
  */
 
-/** @typedef {{ fetch: typeof fetch, payloadUrl: string, relaySecret: string, clientIp: string | null, cache: Cache | null }} Deps */
+/**
+ * @typedef {object} Deps
+ * @property {typeof fetch} fetch
+ * @property {string} payloadUrl payload 的地址（生产 https://payload.owlpin.cn）
+ * @property {string} relaySecret 转发真实 IP 用的密钥（与 payload 的 REPORT_RELAY_SECRET 一致），没配为 ''
+ * @property {string | null} clientIp 平台给的客户端 IP（request.eo.clientIp）
+ * @property {() => Promise<Cache | null>} openCache 按需打开 Cache API（只有 get_report_format 用）
+ */
 /** @typedef {{ content: Array<{ type: 'text', text: string }>, isError?: boolean, structuredContent?: Record<string, unknown> }} ToolResult */
 
 const SERVER_INFO = { name: 'owlpin-report', version: '1.0.0' }
 
-/** 与 payload 的 `SUPPORTED_PROTOCOL_VERSIONS` 一致，新 → 旧 */
+// 下面三个常量手抄自 payload，改那边时同步（MIRROR）：
+// - SUPPORTED_PROTOCOL_VERSIONS ← src/integrations/mcp/server.ts
+// - REPORT_TTL_HOURS ← src/aiApps/report/constants.ts（只用于说明文案，实际有效期以返回的 expiresAt 为准）
+// - MAX_REQUEST_BYTES ← REPORT_MAX_BODY_BYTES + JSON-RPC 外壳余量
+
+/** 新 → 旧 */
 const SUPPORTED_PROTOCOL_VERSIONS = ['2025-11-25', '2025-06-18', '2025-03-26', '2024-11-05']
 
-/** 与 payload 的 `REPORT_TTL_HOURS` 一致，只用于说明文案；实际有效期以 payload 返回的 expiresAt 为准 */
 const REPORT_TTL_HOURS = 8
 
-/** spec 上限（payload 的 `REPORT_MAX_BODY_BYTES`）+ JSON-RPC 外壳余量 */
 const MAX_REQUEST_BYTES = 256 * 1024 + 16 * 1024
 
 /** 转发给 payload 的超时；MCP 客户端（WorkBuddy）自己的超时是 30 秒 */
@@ -126,55 +136,77 @@ function negotiateProtocolVersion(requested) {
     : SUPPORTED_PROTOCOL_VERSIONS[0]
 }
 
+/** @param {string} text UTF-8 字节数（中文一个字 3 字节） */
+function utf8Length(text) {
+  return new TextEncoder().encode(text).length
+}
+
 /**
- * 带超时的 fetch（不用 AbortSignal.timeout：不确定边缘运行时有没有）
+ * 调 payload，连响应体一起在超时内读完（只超时等响应头的话，payload 发完头卡住时会一直挂到客户端超时）。
+ * 不用 AbortSignal.timeout：不确定边缘运行时有没有；fetch 不认 signal 时 Promise.race 兜底。
+ * 返回状态码和解析后的 JSON（解析失败为 null）
  * @param {Deps} deps @param {string} path @param {RequestInit} init
+ * @returns {Promise<{ status: number, body: any }>}
  */
 async function callPayload(deps, path, init) {
   const controller = new AbortController()
-  const timer = setTimeout(() => controller.abort(), UPSTREAM_TIMEOUT_MS)
+  /** @type {ReturnType<typeof setTimeout> | undefined} */
+  let timer
+  const timeout = new Promise((_, reject) => {
+    timer = setTimeout(() => {
+      controller.abort()
+      reject(new Error(`payload ${path} timed out`))
+    }, UPSTREAM_TIMEOUT_MS)
+  })
+  const request = (async () => {
+    const response = await deps.fetch(`${deps.payloadUrl.replace(/\/+$/, '')}${path}`, {
+      ...init,
+      signal: controller.signal,
+    })
+    const text = await response.text()
+    let body = null
+    try {
+      body = JSON.parse(text)
+    } catch {
+      // 网关错误页等非 JSON 响应
+    }
+    return { status: response.status, body }
+  })()
   try {
-    return await deps.fetch(`${deps.payloadUrl.replace(/\/+$/, '')}${path}`, { ...init, signal: controller.signal })
+    return /** @type {{ status: number, body: any }} */ (await Promise.race([request, timeout]))
   } finally {
     clearTimeout(timer)
   }
 }
 
-/** payload 的错误统一是 `{ error: { code, message, details? } }` @param {Response} response */
-async function readPayloadError(response) {
-  try {
-    const body = /** @type {{ error?: { code?: string, message?: string, details?: { issues?: unknown } } }} */ (
-      await response.json()
-    )
-    return body.error ?? {}
-  } catch {
-    return {}
-  }
+/** payload 的错误统一是 `{ error: { code, message, details? } }` @param {any} body */
+function payloadError(body) {
+  /** @type {{ code?: string, message?: string, details?: { issues?: unknown } }} */
+  const error = body && typeof body === 'object' && body.error && typeof body.error === 'object' ? body.error : {}
+  return error
 }
 
-/** @param {Deps} deps @returns {Promise<ToolResult>} */
-async function getReportFormat(deps) {
-  const cacheKey = `${deps.payloadUrl.replace(/\/+$/, '')}/api/reports/format`
-  const cached = deps.cache ? await deps.cache.match(cacheKey).catch(() => undefined) : undefined
-  let body
-  if (cached) {
-    body = await cached.json()
-  } else {
+/** @param {Deps} deps @param {string} cacheKey 本服务自己域名下的地址（边缘缓存不一定接受别的域名做 key） @returns {Promise<ToolResult>} */
+async function getReportFormat(deps, cacheKey) {
+  const cache = await deps.openCache()
+  const cached = cache ? await cache.match(cacheKey).catch(() => undefined) : undefined
+  /** @type {any} */
+  let body = cached ? await cached.json().catch(() => null) : null
+  if (!body) {
     const response = await callPayload(deps, '/api/reports/format', { headers: { Accept: 'application/json' } })
-    if (!response.ok) {
+    if (response.status !== 200 || typeof response.body?.format !== 'string') {
       console.error('[report-mcp] format upstream', response.status)
       return failure(GENERIC_TOOL_ERROR)
     }
-    body = await response.json()
-    if (deps.cache) {
+    body = response.body
+    if (cache) {
       const copy = new Response(JSON.stringify(body), {
         headers: { 'Content-Type': 'application/json', 'Cache-Control': `max-age=${FORMAT_CACHE_SECONDS}` },
       })
-      await deps.cache.put(cacheKey, copy).catch(() => {})
+      await cache.put(cacheKey, copy).catch(error => console.error('[report-mcp] cache put failed', error))
     }
   }
-  const { catalogVersion, format, ttlHours } =
-    /** @type {{ catalogVersion: number, format: string, ttlHours: number }} */ (body)
+  const { catalogVersion, format, ttlHours } = body
   return { content: [{ type: 'text', text: format }], structuredContent: { catalogVersion, format, ttlHours } }
 }
 
@@ -191,16 +223,24 @@ async function createReport(args, deps, source) {
     'Accept-Language': 'en',
     'X-Owlpin-Client': source,
   }
-  // 真实客户端 IP：payload 只在密钥对上时才信任它（否则按 EdgeOne 出口 IP 限流，所有人共用一个桶）
-  if (deps.clientIp && deps.relaySecret) {
+  // 真实客户端 IP：payload 只在密钥对上时才信任它。缺了的话 payload 只能按 EdgeOne 出口 IP 限流，
+  // 所有用户共用一个桶（一个人刷满就都用不了），所以要在日志里喊出来。密钥只发给 https 地址
+  if (deps.clientIp && deps.relaySecret && deps.payloadUrl.startsWith('https://')) {
     headers['X-Report-Client-Ip'] = deps.clientIp
     headers['X-Report-Relay-Secret'] = deps.relaySecret
+  } else {
+    console.error('[report-mcp] creating without the relayed client IP; all callers share one rate-limit bucket', {
+      hasClientIp: Boolean(deps.clientIp),
+      hasSecret: Boolean(deps.relaySecret),
+      https: deps.payloadUrl.startsWith('https://'),
+    })
   }
   const response = await callPayload(deps, '/api/reports', { method: 'POST', headers, body: JSON.stringify({ spec }) })
+  console.info('[report-mcp] create_report', { source, status: response.status })
 
-  if (response.status === 201) {
+  if (response.status === 201 && response.body) {
     const created = /** @type {{ url: string | null, token: string, expiresAt: string, issues?: string[] }} */ (
-      await response.json()
+      response.body
     )
     const issues = created.issues ?? []
     const notes = issues.length > 0 ? `\nSome parts were dropped:\n- ${issues.join('\n- ')}` : ''
@@ -215,7 +255,7 @@ async function createReport(args, deps, source) {
     }
   }
 
-  const error = await readPayloadError(response)
+  const error = payloadError(response.body)
   if (response.status === 400) {
     const issues = Array.isArray(error.details?.issues) ? error.details.issues.map(String) : []
     const list = issues.length > 0 ? `\nIssues:\n- ${issues.slice(0, 30).join('\n- ')}` : ''
@@ -244,14 +284,19 @@ export async function handleMcpRequest(request, deps) {
   if (request.headers.get('origin')) {
     return rpcError(null, ERR_INVALID_REQUEST, 'Browser requests are not allowed', 403)
   }
+  // 先按字节检查再解析：分块传输时没有 Content-Length，只看请求头挡不住
   if (Number(request.headers.get('content-length') ?? 0) > MAX_REQUEST_BYTES) {
+    return rpcError(null, ERR_INVALID_REQUEST, 'Request too large', 413)
+  }
+  const raw = await request.text()
+  if (utf8Length(raw) > MAX_REQUEST_BYTES) {
     return rpcError(null, ERR_INVALID_REQUEST, 'Request too large', 413)
   }
 
   /** @type {unknown} */
   let body
   try {
-    body = await request.json()
+    body = JSON.parse(raw)
   } catch {
     return rpcError(null, ERR_PARSE, 'Invalid JSON')
   }
@@ -313,7 +358,7 @@ export async function handleMcpRequest(request, deps) {
         try {
           result =
             name === 'get_report_format'
-              ? await getReportFormat(deps)
+              ? await getReportFormat(deps, `${new URL(request.url).origin}/__cache/report-format`)
               : await createReport(/** @type {Record<string, unknown>} */ (rawArgs ?? {}), deps, source)
         } catch (error) {
           // 超时、网络错误等：原因只进日志
@@ -347,19 +392,18 @@ export async function handleMcpRequest(request, deps) {
  */
 export async function onRequest(context) {
   const { request, env = {} } = context
-  /** @type {Cache | null} */
-  let cache = null
-  try {
-    cache = await caches.open('owlpin-report-mcp')
-  } catch {
-    // 没有 Cache API 时不缓存
-  }
   return handleMcpRequest(request, {
     fetch: (input, init) => fetch(input, init),
     payloadUrl: env.PAYLOAD_URL || 'https://payload.owlpin.cn',
     relaySecret: env.REPORT_RELAY_SECRET || '',
     // 只用平台填的 IP，不读客户端可伪造的请求头
     clientIp: request.eo?.clientIp || null,
-    cache,
+    openCache: async () => {
+      try {
+        return await caches.open('owlpin-report-mcp')
+      } catch {
+        return null
+      }
+    },
   })
 }
