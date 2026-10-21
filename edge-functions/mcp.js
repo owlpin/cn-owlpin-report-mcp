@@ -26,10 +26,47 @@
 
 const SERVER_INFO = { name: 'owlpin-report', version: '1.0.0' }
 
-// 下面三个常量手抄自 payload，改那边时同步（MIRROR）：
+// 下面几个常量手抄自 payload，改那边时同步（MIRROR）：
 // - SUPPORTED_PROTOCOL_VERSIONS ← src/integrations/mcp/server.ts
+// - REPORT_THEMES ← src/aiApps/appThemes.ts 的 APP_THEME_IDS
 // - REPORT_TTL_HOURS ← src/aiApps/report/constants.ts（只用于说明文案，实际有效期以返回的 expiresAt 为准）
 // - MAX_REQUEST_BYTES ← REPORT_MAX_BODY_BYTES + JSON-RPC 外壳余量
+
+/** create_report 可选的主题（daisyUI 主题名），写进 inputSchema 的 enum，让客户端和模型只在这些里选 */
+const REPORT_THEMES = [
+  'light',
+  'dark',
+  'cupcake',
+  'bumblebee',
+  'emerald',
+  'corporate',
+  'synthwave',
+  'retro',
+  'cyberpunk',
+  'valentine',
+  'halloween',
+  'garden',
+  'forest',
+  'aqua',
+  'lofi',
+  'pastel',
+  'fantasy',
+  'wireframe',
+  'black',
+  'luxury',
+  'dracula',
+  'cmyk',
+  'autumn',
+  'business',
+  'acid',
+  'lemonade',
+  'night',
+  'coffee',
+  'winter',
+  'dim',
+  'nord',
+  'sunset',
+]
 
 /** 新 → 旧 */
 const SUPPORTED_PROTOCOL_VERSIONS = ['2025-11-25', '2025-06-18', '2025-03-26', '2024-11-05']
@@ -86,6 +123,7 @@ On success reply with the returned url as-is and mention that it expires in ${RE
         },
         theme: {
           type: 'string',
+          enum: REPORT_THEMES,
           description:
             'Optional color theme of the page and its PDF: one of the themes listed by get_report_format (e.g. corporate, nord, cupcake). Pick one that fits the topic; default light.',
         },

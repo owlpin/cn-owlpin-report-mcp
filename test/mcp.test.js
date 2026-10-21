@@ -92,6 +92,7 @@ describe('protocol', () => {
     ])
     expect(result.tools[1]).toMatchObject({ title: 'Create report', inputSchema: { required: ['spec'] } })
     expect(result.tools[0].annotations.readOnlyHint).toBe(true)
+    expect(result.tools[1].inputSchema.properties.theme.enum).toContain('corporate')
   })
 
   it('acknowledges notifications with 202, rejects GET and unknown versions', async () => {
