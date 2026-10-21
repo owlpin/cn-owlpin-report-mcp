@@ -24,7 +24,7 @@
  */
 /** @typedef {{ content: Array<{ type: 'text', text: string }>, isError?: boolean, structuredContent?: Record<string, unknown> }} ToolResult */
 
-const SERVER_INFO = { name: 'owlpin-report', version: '1.0.0' }
+const SERVER_INFO = { name: 'online-report', version: '1.0.0' }
 
 // 下面几个常量手抄自 payload，改那边时同步（MIRROR）：
 // - SUPPORTED_PROTOCOL_VERSIONS ← src/integrations/mcp/server.ts

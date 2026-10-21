@@ -3,3 +3,6 @@ node_modules/
 .env*
 *.log
 .DS_Store
+
+# 连接器提交包
+*.zip

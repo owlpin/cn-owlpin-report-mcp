@@ -1,6 +1,6 @@
 {
   "mcpServers": {
-    "owlpin-report": {
+    "online-report": {
       "type": "streamableHttp",
       "url": "https://report.owlpin.cn/mcp?client=workbuddy",
       "timeout": 30000

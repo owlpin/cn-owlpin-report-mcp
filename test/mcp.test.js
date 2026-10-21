@@ -79,7 +79,7 @@ describe('protocol', () => {
     expect(response.headers.get('www-authenticate')).toBeNull()
     const { result } = await resultOf(response)
     expect(result.protocolVersion).toBe('2025-06-18')
-    expect(result.serverInfo.name).toBe('owlpin-report')
+    expect(result.serverInfo.name).toBe('online-report')
   })
 
   it('lists both tools with titles, schemas and annotations', async () => {

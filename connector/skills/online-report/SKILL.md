@@ -1,5 +1,5 @@
 ---
-name: owlpin-report
+name: online-report
 display_name: 出报告（在线报告页）
 display_name_en: Make a report page
 description: 把对话或用户给的材料整理成一页排版好的「在线报告页」，返回一个可分享、可下载 PDF 的报告链接（小鸮钉台，app.owlpin.cn/b/…），不生成 Word / PPT 文件。用户说「出报告」「生成报告」「出个报告」「整理成报告」「做成报告页」「汇总成一页」「生成报告链接」「make a report」，且没有指明要 Word / docx / PPT / Excel 文件时，优先用这个技能。
@@ -21,7 +21,7 @@ author: 小鸮钉台
 
 ## 步骤
 
-1. 调用 `get_report_format`（MCP 连接器 owlpin-report 的工具，可能在延迟加载的工具列表里，需要先加载），拿到页面格式、组件目录和内容规则。每次会话调用一次即可。
+1. 调用 `get_report_format`（MCP 连接器 online-report 的工具，可能在延迟加载的工具列表里，需要先加载），拿到页面格式、组件目录和内容规则。每次会话调用一次即可。
 2. 按格式写 `spec`（`{ "root": "page", "elements": { ... } }`）：
    - 第一个元素是 `Hero`，标题就是报告标题，副标题一句话说明报告内容。
    - 之后 3–6 个 `Section`：结论 / 关键数据 / 分析 / 风险 / 下一步等，按对话内容取舍。
@@ -31,6 +31,8 @@ author: 小鸮钉台
    - 不放链接和图片（发布时会被去掉）；用对话的语言书写。
 3. 调用 `create_report`，参数 `spec`，再按主题和语气选一个 `theme`（可选主题和建议见 `get_report_format`：正式的工作汇报用 `corporate` / `business`，柔和的用 `cupcake` / `pastel`，冷静简洁的用 `nord`，深色的用 `night` / `dim`；不确定就不填，默认 `light`）。
    - 返回错误时，按错误里列出的 issues 修正 spec 后再调一次，最多重试 2 次。
+   - 超时、提示请求太频繁或服务暂不可用时，不要反复重试：告诉用户稍后再试，并把报告要点直接写在回复里。
+   - 这个连接器不需要登录或授权；不要引导用户去配置 Token。
 4. 回复用户：报告标题 + 返回的链接（原样给出，不要改写），并提醒「报告 8 小时后自动清空，需要保留请在页面里下载 PDF」。
 
 ## 注意
