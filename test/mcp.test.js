@@ -209,6 +209,19 @@ describe('create_report', () => {
     expect(result.content[0].text).toContain('https://app.example.com/b/tok')
   })
 
+  it('passes the optional theme through and omits it when absent', async () => {
+    fetchMock.mockImplementation(async () =>
+      jsonResponse({ token: 't', url: null, expiresAt: 'x', theme: 'nord', issues: [] }, 201)
+    )
+    const { result } = await resultOf(
+      await handleMcpRequest(rpcRequest(callTool('create_report', { spec: SPEC, theme: 'nord' })), deps())
+    )
+    await handleMcpRequest(rpcRequest(callTool('create_report', { spec: SPEC })), deps())
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({ spec: SPEC, theme: 'nord' })
+    expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toEqual({ spec: SPEC })
+    expect(result.structuredContent.theme).toBe('nord')
+  })
+
   it('does not send the relay headers without a client IP, a secret or https, and logs it', async () => {
     fetchMock.mockImplementation(async () => jsonResponse({ token: 't', url: null, expiresAt: 'x', issues: [] }, 201))
     await handleMcpRequest(rpcRequest(callTool('create_report', { spec: SPEC })), deps({ clientIp: null }))

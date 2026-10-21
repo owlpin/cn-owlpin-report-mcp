@@ -73,7 +73,7 @@ const TOOLS = [
   {
     name: 'create_report',
     description: `Publish a structured report page from the conversation and get its link. Use it when the user asks to turn the discussion or material into a report (e.g. "出报告", "生成报告", "整理成报告", "make a report").
-Call get_report_format first and write the "spec" exactly in that format (a Page root, a Hero first, then Sections built from the listed components). Do not include links. The page is public to anyone with the link and is deleted automatically ${REPORT_TTL_HOURS} hours after creation.
+Call get_report_format first and write the "spec" exactly in that format (a Page root, a Hero first, then Sections built from the listed components), and pick a "theme" that fits the topic. Do not include links. The page is public to anyone with the link and is deleted automatically ${REPORT_TTL_HOURS} hours after creation.
 On success reply with the returned url as-is and mention that it expires in ${REPORT_TTL_HOURS} hours (the user can download a PDF from the page). If the call fails with issues, fix the spec accordingly and call it again (at most twice).`,
     inputSchema: {
       type: 'object',
@@ -84,6 +84,11 @@ On success reply with the returned url as-is and mention that it expires in ${RE
           description:
             'The page: { "root": "<page id>", "elements": { "<id>": { "type", "props", "children" } } }. Components and props are listed by get_report_format.',
         },
+        theme: {
+          type: 'string',
+          description:
+            'Optional color theme of the page and its PDF: one of the themes listed by get_report_format (e.g. corporate, nord, cupcake). Pick one that fits the topic; default light.',
+        },
       },
       required: ['spec'],
     },
@@ -92,6 +97,7 @@ On success reply with the returned url as-is and mention that it expires in ${RE
       properties: {
         expiresAt: { type: 'string', description: 'ISO time after which the report is deleted' },
         issues: { type: 'array', items: { type: 'string' } },
+        theme: { type: 'string', description: 'Theme actually used (unknown themes fall back to light)' },
         token: { type: 'string' },
         url: { type: ['string', 'null'], description: 'Public report page, e.g. https://app.owlpin.cn/b/<token>' },
       },
@@ -235,7 +241,13 @@ async function createReport(args, deps, source) {
       https: deps.payloadUrl.startsWith('https://'),
     })
   }
-  const response = await callPayload(deps, '/api/reports', { method: 'POST', headers, body: JSON.stringify({ spec }) })
+  // 主题原样转给 payload：认不认得、怎么回退都由 payload 决定
+  const theme = typeof args.theme === 'string' && args.theme ? args.theme : undefined
+  const response = await callPayload(deps, '/api/reports', {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(theme ? { spec, theme } : { spec }),
+  })
   console.info('[report-mcp] create_report', { source, status: response.status })
 
   if (response.status === 201 && response.body) {
