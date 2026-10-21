@@ -51,4 +51,12 @@ npx @modelcontextprotocol/inspector   # Streamable HTTP，URL 填 https://report
 ## WorkBuddy 连接器
 
 `connector/mcp.json` 指向 `https://report.owlpin.cn/mcp?client=workbuddy`（来源用 URL 参数标记：`staticHeaders` 要 WorkBuddy 5.0 以上）。
-在 WorkBuddy 本地加载 `connector/` 实测「把上面的讨论出个报告」能触发、链接能打开，再打包提交开放平台审核。字段说明见 https://open.workbuddy.cn/docs/connector 与 /docs/skill。
+本地实测（WorkBuddy 桌面版，配置目录是 `~/.workbuddy-ai/`，不是社区教程里的 `~/.workbuddy/`）：
+
+1. MCP：设置 → 连接器 →「自定义连接器」添加 `connector/mcp.json` 里的服务器（会写进 `~/.workbuddy-ai/mcp.json`），然后点「信任」启用。
+2. 技能：`cp -R connector/skills/owlpin-report ~/.workbuddy-ai/skills/`（用户技能目录；连接器自带的技能装在 `~/.workbuddy-ai/connectors/skills/`），设置里刷新技能。
+3. 对话里说「把上面的讨论出个报告」，应先调 `get_report_format` 再调 `create_report`，回复 `app.owlpin.cn/b/…` 链接。
+
+注意：MCP 工具在 WorkBuddy 里是延迟加载的（模型平时只看到工具名），触发全靠技能的 `description`。它和内置的 `workbuddy-docx`（生成 Word）抢「生成报告」这类说法，所以描述里写明了「在线报告页、不是 Word 文件」。会话记录在 `~/.workbuddy-ai/projects/`，排查没触发时看模型实际调了什么。
+
+通过后打包提交开放平台审核。字段说明见 https://open.workbuddy.cn/docs/connector 与 /docs/skill。
