@@ -2,16 +2,16 @@
 name: online-report
 display_name: 出报告（在线报告页）
 display_name_en: Make a report page
-description: 把对话或用户给的材料整理成一页排版好的「在线报告页」，返回一个可分享、可下载 PDF 的报告链接（小鸮钉台，app.owlpin.cn/b/…），不生成 Word / PPT 文件。用户说「出报告」「生成报告」「出个报告」「整理成报告」「做成报告页」「汇总成一页」「生成报告链接」「make a report」，且没有指明要 Word / docx / PPT / Excel 文件时，优先用这个技能。
+description: 把对话或用户给的材料整理成一页排版好的「在线报告页」，返回一个可分享、可下载 PDF 的报告链接（鸮小助，app.owlpin.cn/b/…），不生成 Word / PPT 文件。用户说「出报告」「生成报告」「出个报告」「整理成报告」「做成报告页」「汇总成一页」「生成报告链接」「make a report」，且没有指明要 Word / docx / PPT / Excel 文件时，优先用这个技能。
 description_zh: 把对话整理成一页在线报告，返回可分享的报告链接
 description_en: Turn the conversation into a one-page online report with a shareable link (not a Word file)
 version: 1.1.0
-author: 小鸮钉台
+author: 鸮小助
 ---
 
 # 出报告（在线报告页）
 
-把对话里已经讨论出的结论、数据、待办整理成一页结构化报告，发布到小鸮钉台，回复报告链接。
+把对话里已经讨论出的结论、数据、待办整理成一页结构化报告，发布到鸮小助，回复报告链接。
 
 ## 什么时候用
 

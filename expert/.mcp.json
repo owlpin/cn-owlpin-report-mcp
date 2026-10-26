@@ -1,0 +1,18 @@
+{
+  "mcpServers": {
+    "online-report": {
+      "type": "streamableHttp",
+      "url": "https://report.owlpin.cn/mcp?client=workbuddy",
+      "timeout": 30000,
+      "x-workbuddy": {
+        "displayName": { "zh": "在线报告", "en": "Online Report" },
+        "description": {
+          "zh": "连接后可把对话整理成一页在线报告，返回可分享、可下载 PDF 的链接。无需登录。",
+          "en": "Turns the conversation into a one-page online report with a shareable link. No sign-in needed."
+        },
+        "icon": "./avatars/online-report.svg",
+        "auth": { "type": "none" }
+      }
+    }
+  }
+}

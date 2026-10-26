@@ -1,8 +1,8 @@
 # cn-owlpin-report-mcp
 
-小鸮钉台「出报告」的 MCP 入口，部署在腾讯 EdgeOne Makers 的边缘函数上：`https://report.owlpin.cn/mcp`。
+鸮小助「出报告」的 MCP 入口，部署在腾讯 EdgeOne Makers 的边缘函数上：`https://report.owlpin.cn/mcp`。
 
-外部平台（WorkBuddy 连接器等）里的模型把对话整理成小鸮钉台的页面 spec，调这里的 `create_report`，拿到公开报告页 `https://app.owlpin.cn/b/<token>`。
+外部平台（WorkBuddy 连接器等）里的模型把对话整理成鸮小助的页面 spec，调这里的 `create_report`，拿到公开报告页 `https://app.owlpin.cn/b/<token>`。
 这里**不存数据**：校验、存储、8 小时清空、限流、下架都在 payload（`../cn-owlpin-payload` 的 `src/collections/Reports/`，接口见其 `docs/api.md` 的 Reports 一节）。
 
 ```
@@ -15,12 +15,13 @@ WorkBuddy ──MCP──▶ report.owlpin.cn/mcp（本项目，无状态）
 
 ## 目录
 
-| 路径 | 说明 |
-| --- | --- |
-| `edge-functions/mcp.js` | 唯一的边缘函数（路由 `/mcp`）：MCP 协议 + 两个工具，纯 JS、无依赖、不需要构建 |
-| `test/mcp.test.js` | vitest，mock fetch 测协议、转发的请求头 / body 和各种上游响应 |
-| `edgeone.json`、`public/` | 静态资源只发 `public/`（只有一个禁止抓取的 robots.txt），仓库里的其他文件不会被公开 |
-| `connector/` | WorkBuddy 连接器包（`connector-meta.json`、`mcp.json`、`icon.svg`、`skills/online-report/SKILL.md`），打包后在 WorkBuddy 开放平台提交审核 |
+| 路径                      | 说明                                                                                                                                      |
+| ------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| `edge-functions/mcp.js`   | 唯一的边缘函数（路由 `/mcp`）：MCP 协议 + 两个工具，纯 JS、无依赖、不需要构建                                                             |
+| `test/mcp.test.js`        | vitest，mock fetch 测协议、转发的请求头 / body 和各种上游响应                                                                             |
+| `edgeone.json`、`public/` | 静态资源只发 `public/`（只有一个禁止抓取的 robots.txt），仓库里的其他文件不会被公开                                                       |
+| `connector/`              | WorkBuddy 连接器包（`connector-meta.json`、`mcp.json`、`icon.svg`、`skills/online-report/SKILL.md`），打包后在 WorkBuddy 开放平台提交审核 |
+| `expert/`                 | WorkBuddy 专家包「鸮小助 · 在线报告设计师」，`pnpm run pack:expert` 打包成 `online-report-expert.zip`                                     |
 
 ## 开发
 
@@ -60,3 +61,15 @@ npx @modelcontextprotocol/inspector   # Streamable HTTP，URL 填 https://report
 注意：MCP 工具在 WorkBuddy 里是延迟加载的（模型平时只看到工具名），触发全靠技能的 `description`。它和内置的 `workbuddy-docx`（生成 Word）抢「生成报告」这类说法，所以描述里写明了「在线报告页、不是 Word 文件」。会话记录在 `~/.workbuddy-ai/projects/`，排查没触发时看模型实际调了什么。
 
 通过后打包提交开放平台审核。字段说明见 https://open.workbuddy.cn/docs/connector 与 /docs/skill。
+
+## WorkBuddy 专家
+
+`expert/` 是专家包（格式见 https://open.workbuddy.cn/docs/expert ），在专家市场里「召唤专家」后进入专门出报告的对话：先收集材料、确认章节，再出报告、按需调整。
+
+- `.codebuddy-plugin/plugin.json`：市场展示信息（双语；`displayDescription` 中文 40–50 字，`tags` / `quickPrompts` 各 3 条，`defaultInitPrompt` 等于第一条 quickPrompt）。
+- `agents/report-designer.md`：系统提示词，管对话流程；出报告的具体规则不在这里写，靠预加载的 `online-report` 技能。
+- `.mcp.json`：依赖本 MCP（`auth: none`，召唤时 WorkBuddy 弹卡片引导连接）。连接器上架后可以改成 `plugin.json` 的 `dependencies.connectors: ["<连接器 ID>"]`。
+- `skills/online-report`、`avatars/online-report.svg` 是指向 `connector/` 的软链接，只维护一份；`zip` 打包时会展开成实际文件。
+- `avatars/expert.png`：512×512，目前用的是连接器图标渲染的占位图。
+
+改完技能要同时考虑连接器和专家两边。提交：`pnpm run pack:expert`，在开放平台上传 `online-report-expert.zip`。

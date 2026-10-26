@@ -1,6 +1,6 @@
 // @ts-check
 /**
- * 小鸮钉台报告 MCP 入口：`POST /mcp`（Streamable HTTP，stateless JSON-RPC 2.0），跑在 EdgeOne Makers 边缘函数上。
+ * 鸮小助报告 MCP 入口：`POST /mcp`（Streamable HTTP，stateless JSON-RPC 2.0），跑在 EdgeOne Makers 边缘函数上。
  *
  * 这里只有 MCP 协议和工具说明，**不存任何数据**：
  * - `get_report_format` 取 payload 的 `GET /api/reports/format`（Cache API 缓存 5 分钟）

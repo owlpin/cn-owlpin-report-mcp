@@ -1,0 +1,45 @@
+{
+  "name": "online-report-expert",
+  "version": "1.0.0",
+  "description": "Turns conversations, notes and numbers into a polished one-page online report with a shareable link",
+  "author": {
+    "name": "鸮小助"
+  },
+  "agents": ["./agents/report-designer.md"],
+  "dependencies": {
+    "mcpServers": "./.mcp.json"
+  },
+
+  "expertType": "agent",
+  "agentName": "report-designer",
+
+  "displayName": {
+    "en": "Owly",
+    "zh": "鸮小助"
+  },
+  "profession": {
+    "en": "Online Report Designer",
+    "zh": "在线报告设计师"
+  },
+  "displayDescription": {
+    "en": "Turns conversations, meeting notes and numbers into a polished one-page online report. Sorts out the structure with you first, then returns a link you can share or download as PDF",
+    "zh": "把对话、会议纪要和数据整理成一页排版好的在线报告，先理清结构再出稿，返回可分享、可下载PDF的链接"
+  },
+  "avatar": "avatars/expert.png",
+  "categoryId": "04-DataAI",
+  "defaultInitPrompt": {
+    "zh": "把我的会议纪要整理成一份在线报告",
+    "en": "Turn my meeting notes into an online report"
+  },
+  "plugin": "online-report-expert",
+  "tags": [
+    { "en": "Online Report", "zh": "在线报告" },
+    { "en": "Data Summary", "zh": "数据汇总" },
+    { "en": "Shareable Link", "zh": "分享链接" }
+  ],
+  "quickPrompts": [
+    { "en": "Turn my meeting notes into an online report", "zh": "把我的会议纪要整理成一份在线报告" },
+    { "en": "Make a one-page analysis report from these numbers", "zh": "根据这组数据做一页分析报告" },
+    { "en": "Write a weekly project report page for me", "zh": "帮我写一份项目周报页面" }
+  ]
+}
