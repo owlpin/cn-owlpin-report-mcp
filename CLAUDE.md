@@ -2,7 +2,7 @@
 
 回答请使用中文；代码注释使用中文；标识符、MCP 工具名 / 描述 / 错误信息、git commit message 用英文。
 
-鸮小助「出报告」的 MCP 入口（EdgeOne Makers 边缘函数，`report.owlpin.cn/mcp`），用法与部署见 README.md。
+云鸮小助「出报告」的 MCP 入口（EdgeOne Makers 边缘函数，`report.owlpin.cn/mcp`），用法与部署见 README.md。
 
 ## 边界
 

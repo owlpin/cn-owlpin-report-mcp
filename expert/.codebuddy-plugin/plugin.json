@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "description": "Turns conversations, notes and numbers into a polished one-page online report with a shareable link",
   "author": {
-    "name": "鸮小助"
+    "name": "云鸮小助"
   },
   "agents": ["./agents/report-designer.md"],
   "dependencies": {
@@ -15,7 +15,7 @@
 
   "displayName": {
     "en": "Owly",
-    "zh": "鸮小助"
+    "zh": "云鸮小助"
   },
   "profession": {
     "en": "Online Report Designer",

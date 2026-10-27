@@ -2,7 +2,7 @@
   "name": "cn-owlpin-report-mcp",
   "version": "1.0.0",
   "private": true,
-  "description": "鸮小助报告 MCP 入口（EdgeOne Makers 边缘函数），创建报告转发给 payload",
+  "description": "云鸮小助报告 MCP 入口（EdgeOne Makers 边缘函数），创建报告转发给 payload",
   "type": "module",
   "packageManager": "pnpm@10.33.4",
   "scripts": {

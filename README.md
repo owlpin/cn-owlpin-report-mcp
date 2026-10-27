@@ -1,8 +1,8 @@
 # cn-owlpin-report-mcp
 
-鸮小助「出报告」的 MCP 入口，部署在腾讯 EdgeOne Makers 的边缘函数上：`https://report.owlpin.cn/mcp`。
+云鸮小助「出报告」的 MCP 入口，部署在腾讯 EdgeOne Makers 的边缘函数上：`https://report.owlpin.cn/mcp`。
 
-外部平台（WorkBuddy 连接器等）里的模型把对话整理成鸮小助的页面 spec，调这里的 `create_report`，拿到公开报告页 `https://app.owlpin.cn/b/<token>`。
+外部平台（WorkBuddy 连接器等）里的模型把对话整理成云鸮小助的页面 spec，调这里的 `create_report`，拿到公开报告页 `https://app.owlpin.cn/b/<token>`。
 这里**不存数据**：校验、存储、8 小时清空、限流、下架都在 payload（`../cn-owlpin-payload` 的 `src/collections/Reports/`，接口见其 `docs/api.md` 的 Reports 一节）。
 
 ```
@@ -21,7 +21,7 @@ WorkBuddy ──MCP──▶ report.owlpin.cn/mcp（本项目，无状态）
 | `test/mcp.test.js`        | vitest，mock fetch 测协议、转发的请求头 / body 和各种上游响应                                                                             |
 | `edgeone.json`、`public/` | 静态资源只发 `public/`（只有一个禁止抓取的 robots.txt），仓库里的其他文件不会被公开                                                       |
 | `connector/`              | WorkBuddy 连接器包（`connector-meta.json`、`mcp.json`、`icon.svg`、`skills/online-report/SKILL.md`），打包后在 WorkBuddy 开放平台提交审核 |
-| `expert/`                 | WorkBuddy 专家包「鸮小助 · 在线报告设计师」，`pnpm run pack:expert` 打包成 `online-report-expert.zip`                                     |
+| `expert/`                 | WorkBuddy 专家包「云鸮小助 · 在线报告设计师」，`pnpm run pack:expert` 打包成 `online-report-expert.zip`                                     |
 
 ## 开发
 
